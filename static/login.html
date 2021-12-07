@@ -8,5 +8,19 @@
 <body>
     <h1>Log In</h1>
 
+    <!-- Login Form -->
+    <form action="/user_login" method="post">
+        <input value="{{token}}" name="xsrf_token" hidden>
+        <label for="username">Username: </label><br>
+        <input id="username" type="text" name="username"><br>
+
+        <label for="password">Password: </label><br>
+        <input id="password" type="password" name="password"><br><br>
+
+        <input type="submit" value="Register">
+    </form>
+
+    <a href="/register">Don't have an account yet? Register here</a>
+
 </body>
 </html>

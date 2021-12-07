@@ -8,5 +8,22 @@
 <body>
     <h1>Register</h1>
 
+    <!-- Register Form -->
+    <form action="/user_register" method="post">
+        <input value="{{token}}" name="xsrf_token" hidden>
+        <label for="username">Username: </label><br>
+        <input id="username" type="text" name="username"><br>
+
+        <label for="password">Password: </label><br>
+        <input id="password" type="password" name="password"><br><br>
+
+        <label for="confirm-password">Password: </label><br>
+        <input id="confirm-password" type="password" name="password"><br><br>
+
+        <input type="submit" value="Register">
+    </form>
+
+    <a href="/login">Already have an account? Log in here</a>
+
 </body>
 </html>
