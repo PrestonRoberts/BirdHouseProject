@@ -76,6 +76,94 @@ def new_response(**kwargs):
     request.sendall(response)
 
 
+# clean string
+def clean_string(input_str):
+    # convert to normal string
+    clean_str = input_str.replace("+", " ")
+    to_replace = []
+    for x in range(len(clean_str)):
+        if clean_str[x] == "%":
+            char = clean_str[x + 1:x + 3]
+            if char not in to_replace:
+                to_replace.append(char)
+
+    clean_str = clean_str.replace("%", "")
+
+    for char in to_replace:
+        clean_str = clean_str.replace(char, chr(int(char, 16)))
+
+    # prevent html attack
+    clean_str = clean_str.replace("&", "&amp")
+    clean_str = clean_str.replace("<", "&lt")
+    clean_str = clean_str.replace(">", "&gt")
+
+    return clean_str
+
+
+# check if username is valid
+def check_username(username):
+    # minimum length of 3, maximum length of 16
+    length = len(username)
+    if length < 3 or length > 16:
+        return False, "Username must be between 3 and 16 characters long"
+
+    # only english characters and numbers
+    allowed_characters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+                          't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
+                          'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5',
+                          '6', '7', '8', '9', '0']
+
+    if any(x not in allowed_characters for x in username):
+        return False, "Username can only contain english letters or numbers"
+
+    return True, "Success"
+
+
+# check if password is valid
+def check_password(password):
+    # minimum length 8
+    if len(password) <= 8:
+        return False, "Password must be at least 8 characters long"
+
+    # 1 lower case character
+    has_lower = False
+    for char in password:
+        if char.islower():
+            has_lower = True
+            break
+    if not has_lower:
+        return False, "Password must have at least 1 lower case character"
+
+    # 1 uppercase character
+    has_upper = False
+    for char in password:
+        if char.isupper():
+            has_upper = True
+            break
+    if not has_upper:
+        return False, "Password must have at least 1 upper case character"
+
+    # 1 number
+    has_digit = False
+    for char in password:
+        if char.isdigit():
+            has_digit = True
+            break
+    if not has_digit:
+        return False, "Password must have at least 1 number"
+
+    # 1 special character
+    special_characters = "!@#$%^&*()-+?_=,<>/"
+    has_special = False
+    for char in password:
+        if char in special_characters:
+            has_special = True
+    if not has_special:
+        return False, "Password must have at least 1 special character (!@#$%^&*()-+?_=,<>/)"
+
+    return True, "Success"
+
+
 # tcp handler --> handles incoming request
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     clients = []
@@ -180,12 +268,73 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
             # post request
             elif data_dict["Request"] == "POST":
+                # get form data
+                form_data = string_data.split("\r\n\r\n")[1].split("&")
+                form_dict = {}
+                for f in form_data:
+                    v = f.split("=")
+                    key = v[0]
+                    value = clean_string(v[1])
+                    form_dict[key] = value
+
+                print(form_dict)
+
                 # TODO user login
                 if data_dict["URL"] == "/user_login":
-                    print("User Login")
+                    # get login information
+                    username = form_dict["username"]
+                    password = form_dict["password"]
+
+                    # TODO search database for user
+
+                    # TODO check if password matches
+
+                    # TODO login the user
+
                 # TODO user register
                 elif data_dict["URL"] == "/user_register":
-                    print("User Login")
+                    # get register information
+                    username = form_dict["username"]
+                    password = form_dict["password"]
+                    confirm_password = form_dict["confirm_password"]
+
+                    # TODO check if inputs are all valid
+                    is_valid = True
+
+                    # check if username is allowed
+                    username_allowed, message = check_username(username)
+                    if not username_allowed:
+                        is_valid = False
+
+                    # TODO check if username is taken
+                    if is_valid:
+                        print("Check if username is taken")
+
+                    # check if passwords match
+                    if is_valid:
+                        if password != confirm_password:
+                            message = "Passwords Do Not Match"
+                            is_valid = False
+
+                    # check if password is strong enough
+                    if is_valid:
+                        password_allowed, message = check_password(password)
+                        if not password_allowed:
+                            is_valid = False
+
+                    # TODO create account
+                    if is_valid:
+                        print("Create Account")
+                        # load login page
+                        new_response(code="301", location="/login", request=self.request)
+
+                    # TODO do not create account
+                    if not is_valid:
+                        # TODO display message to web page
+                        print(message)
+
+                        # load register page
+                        new_response(code="301", location="/register", request=self.request)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
