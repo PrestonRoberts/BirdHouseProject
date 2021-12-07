@@ -3,6 +3,18 @@ import os
 import socketserver
 import threading
 import json
+import bcrypt
+import random
+import string
+
+from pymongo import MongoClient
+
+# connect to database
+mongo_client = MongoClient("mongo")  # docker
+
+# create/get database
+db = mongo_client["birdhouse_db"]
+user_collection = db["users"]
 
 
 # new response
@@ -78,19 +90,7 @@ def new_response(**kwargs):
 
 # clean string
 def clean_string(input_str):
-    # convert to normal string
-    clean_str = input_str.replace("+", " ")
-    to_replace = []
-    for x in range(len(clean_str)):
-        if clean_str[x] == "%":
-            char = clean_str[x + 1:x + 3]
-            if char not in to_replace:
-                to_replace.append(char)
-
-    clean_str = clean_str.replace("%", "")
-
-    for char in to_replace:
-        clean_str = clean_str.replace(char, chr(int(char, 16)))
+    clean_str = normal_string(input_str)
 
     # prevent html attack
     clean_str = clean_str.replace("&", "&amp")
@@ -98,6 +98,25 @@ def clean_string(input_str):
     clean_str = clean_str.replace(">", "&gt")
 
     return clean_str
+
+
+# convert to normal string
+def normal_string(input_str):
+    # convert to normal string
+    normal_str = input_str.replace("+", " ")
+    to_replace = []
+    for x in range(len(normal_str)):
+        if normal_str[x] == "%":
+            char = normal_str[x + 1:x + 3]
+            if char not in to_replace:
+                to_replace.append(char)
+
+    normal_str = normal_str.replace("%", "")
+
+    for char in to_replace:
+        normal_str = normal_str.replace(char, chr(int(char, 16)))
+
+    return normal_str
 
 
 # check if username is valid
@@ -170,7 +189,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         # self.request is the TCP socket connected to the client
-        data = self.request.recv(1024)
+        data = self.request.recv(2048)
         data = data.strip()
 
         # convert data into http request
@@ -269,7 +288,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             # post request
             elif data_dict["Request"] == "POST":
                 # get form data
-                form_data = string_data.split("\r\n\r\n")[1].split("&")
+                form_data = string_data.split("\r\n\r\n")[1]
+                form_data = form_data.split("&")
                 form_dict = {}
                 for f in form_data:
                     v = f.split("=")
@@ -285,11 +305,37 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     username = form_dict["username"]
                     password = form_dict["password"]
 
-                    # TODO search database for user
+                    print(password)
 
-                    # TODO check if password matches
+                    # check if user can log in
+                    is_valid = True
 
-                    # TODO login the user
+                    # search database for user
+                    query = {"username": username}
+                    user = user_collection.find_one(query)
+                    if user is None:
+                        is_valid = False
+
+                    # check if password matches
+                    if is_valid:
+                        print(user["password"])
+                        if bcrypt.checkpw(password.encode(), user["password"]):
+                            # TODO authenticate user
+                            user_token = ''.join(
+                                random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=20))
+
+                            # redirect user to home page
+                            new_response(code="301", location="/home", request=self.request)
+                        else:
+                            is_valid = False
+
+                    # do not log in the user
+                    if not is_valid:
+                        # TODO display error message on webpage
+                        print("Username or password is incorrect")
+
+                        # load login page
+                        new_response(code="301", location="/login", request=self.request)
 
                 # TODO user register
                 elif data_dict["URL"] == "/user_register":
@@ -298,7 +344,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     password = form_dict["password"]
                     confirm_password = form_dict["confirm_password"]
 
-                    # TODO check if inputs are all valid
+                    print(password)
+
+                    # check if inputs are all valid
                     is_valid = True
 
                     # check if username is allowed
@@ -306,9 +354,13 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     if not username_allowed:
                         is_valid = False
 
-                    # TODO check if username is taken
+                    # check if username is taken
                     if is_valid:
-                        print("Check if username is taken")
+                        query = {"username": username}
+                        user = user_collection.find_one(query)
+                        if user is not None:
+                            message = "Username already taken"
+                            is_valid = False
 
                     # check if passwords match
                     if is_valid:
@@ -322,15 +374,25 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         if not password_allowed:
                             is_valid = False
 
-                    # TODO create account
+                    # create account
                     if is_valid:
-                        print("Create Account")
+                        # encrypt password
+                        salt = bcrypt.gensalt()
+                        encrypted_pass = bcrypt.hashpw(password.encode(), salt)
+
+                        # store username and password in database
+                        new_entry = {"username": username, "password": encrypted_pass}
+                        user_collection.insert_one(new_entry)
+
+                        # TODO display success message on webpage
+                        print("Account Created Successfully")
+
                         # load login page
                         new_response(code="301", location="/login", request=self.request)
 
-                    # TODO do not create account
+                    # do not create account
                     if not is_valid:
-                        # TODO display message to web page
+                        # TODO display error message on webpage
                         print(message)
 
                         # load register page
