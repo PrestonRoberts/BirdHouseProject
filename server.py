@@ -1,11 +1,14 @@
 # libraries
+import base64
 import os
 import socketserver
+import sys
 import threading
 import json
 import bcrypt
 import random
 import string
+import hashlib
 
 from pymongo import MongoClient
 
@@ -24,9 +27,9 @@ def new_response(**kwargs):
 
     # 101
     if kwargs["code"] == "101":
-        response += "101 Switching Protocols\r\n"\
-                    "Upgrade: websocket\r\n"\
-                    "Connection: Upgrade\r\n"\
+        response += "101 Switching Protocols\r\n" \
+                    "Upgrade: websocket\r\n" \
+                    "Connection: Upgrade\r\n" \
                     "Sec-WebSocket-Accept: " + kwargs["hash_key"] + "\r\n\r\n"
         response = response.encode("utf-8")
     # 200
@@ -37,15 +40,15 @@ def new_response(**kwargs):
         response += "200 OK" + "\r\n"
         if "visits" in kwargs:
             response += "Set-Cookie: visits=" + kwargs["visits"] + "; Max-Age=3600" + "\r\n"
-        if "user_token" in kwargs:
-            response += "Set-Cookie: user_token=" + kwargs["user_token"] + "; HttpOnly" + "\r\n"
+        if "token" in kwargs:
+            response += "Set-Cookie: user_token=" + kwargs["token"] + "; HttpOnly" + "\r\n"
         response += "Content-Type: " + kwargs["contentType"]
         if "charset" in kwargs:
             response += "; charset=" + kwargs["charset"] + "\r\n"
         else:
             response += "\r\n"
-        response += "Content-Length: " + str(len(content)) + "\r\n"\
-            "X-Content-Type-Options: nosniff" + "\r\n\r\n"
+        response += "Content-Length: " + str(len(content)) + "\r\n" \
+                                                             "X-Content-Type-Options: nosniff" + "\r\n\r\n"
         response = response.encode("utf-8") + content
     # 201
     elif kwargs["code"] == "201":
@@ -55,26 +58,26 @@ def new_response(**kwargs):
     # 301
     elif kwargs["code"] == "301":
         response += "301 Moved Permanently" + "\r\n" \
-            "Content-Length: 0" + "\r\n" \
-            "Location: " + kwargs["location"]
+                                              "Content-Length: 0" + "\r\n" \
+                                                                    "Location: " + kwargs["location"]
         response = response.encode("utf-8")
     # 403
     elif kwargs["code"] == "403":
         response += "403 Request Rejected" + "\r\n" \
-            "Content-Type: " + kwargs["contentType"]
+                                             "Content-Type: " + kwargs["contentType"]
         if "charset" in kwargs:
             response += "; charset=" + kwargs["charset"] + "\r\n"
         else:
             response += "\r\n"
         response += "Content-Length: " + str(len(kwargs["content"])) + \
-            "\r\n" \
-            "X-Content-Type-Options: nosniff" + "\r\n\r\n" + \
-            kwargs["content"]
+                    "\r\n" \
+                    "X-Content-Type-Options: nosniff" + "\r\n\r\n" + \
+                    kwargs["content"]
         response = response.encode("utf-8")
     # 404
     else:
         response += "404 Not Found" + "\r\n" \
-            "Content-Type: " + kwargs["contentType"]
+                                      "Content-Type: " + kwargs["contentType"]
         if "charset" in kwargs:
             response += "; charset=" + kwargs["charset"] + "\r\n"
         else:
@@ -183,6 +186,27 @@ def check_password(password):
     return True, "Success"
 
 
+# find the cookie you need
+def find_cookie(cookies, find):
+    cookie = cookies.split(";")
+    for c in cookie:
+        cookieParts = c.split("=", 1)
+        if len(cookieParts) >= 2 and cookieParts[0] == find:
+            return cookieParts[1]
+
+    return ""
+
+# find the user that has the matching hash
+def match_user(hashes, hashed):
+    for h in hashes:
+        user = h["username"]
+        tokenbytes = base64.b64encode(hashlib.sha256(
+            (user + "bcad35b6961a45159348ae8386c934cd").encode()).digest())
+        hashedtoken = tokenbytes.decode('ascii')
+        if hashed == hashedtoken:
+            return user
+    return ""
+
 # tcp handler --> handles incoming request
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     clients = []
@@ -212,7 +236,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 if len(v) > 1:
                     data_dict[v[0]] = v[1]
 
-            print(data_dict)
+            # print(data_dict)
 
             # get request
             if data_dict["Request"] == "GET":
@@ -234,11 +258,23 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     new_response(code="200", content=content, contentType="text/html", charset="utf-8",
                                  request=self.request)
 
-                # home page
-                elif data_dict["URL"] == "/home":
+                # user page
+                elif data_dict["URL"] == "/user":
+                    print(data_dict)
                     content = open("./static/home.html").read()
-                    new_response(code="200", content=content, contentType="text/html", charset="utf-8",
-                                 request=self.request)
+                    if "Cookie" in data_dict:
+                        hashToken = find_cookie(data_dict["Cookie"], "user_token")
+                        if hashToken != "":
+                            users = list(user_collection.find({}))
+                            if len(users) > 0:
+                                user = match_user(users, hashToken)
+                                if user != "":
+                                    content = content.replace("<h1 id=\"welcome page\"></h1>",
+                                                              "<h1 id=\"welcome page\">Welcome " + user + "</h1>", 1)
+                                    new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                                                 request=self.request)
+
+                    new_response(code="301", location="/login", request=self.request)
 
                 else:
                     # Load other file types
@@ -297,10 +333,10 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     value = clean_string(v[1])
                     form_dict[key] = value
 
-                print(form_dict)
+                # print(form_dict)
 
                 # TODO user login
-                if data_dict["URL"] == "/user_login":
+                if data_dict["URL"] == "/user":
                     # get login information
                     username = form_dict["username"]
                     password = form_dict["password"]
@@ -321,11 +357,17 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         print(user["password"])
                         if bcrypt.checkpw(password.encode(), user["password"]):
                             # TODO authenticate user
-                            user_token = ''.join(
-                                random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=20))
+                            tokenBytes = base64.b64encode(hashlib.sha256(
+                                (user["username"] + "bcad35b6961a45159348ae8386c934cd").encode()).digest())
+                            user_token = tokenBytes.decode('ascii')
+                            print(user_token)
 
                             # redirect user to home page
-                            new_response(code="301", location="/home", request=self.request)
+                            content = open("./static/home.html").read()
+                            content = content.replace("<h1 id=\"welcome page\"></h1>",
+                                                      "<h1 id=\"welcome page\">Welcome " + username + "</h1>", 1)
+                            new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                                         request=self.request, token=user_token)
                         else:
                             is_valid = False
 
@@ -418,5 +460,8 @@ if __name__ == "__main__":
         server_thread.daemon = True
         server_thread.start()
         print("Server loop running in thread:", server_thread.name)
+        sys.stdout.flush()
+
+        find_cookie("user_token=cKl9jd/uFh0QIxzcbyZIE88wOwuNFq4MnGZrzXasgxc=", "user_token")
 
         server.serve_forever()
