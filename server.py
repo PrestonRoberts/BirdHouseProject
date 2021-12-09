@@ -207,6 +207,13 @@ def match_user(hashes, hashed):
             return user
     return ""
 
+def accept_response(socket_key):
+    concat_key = socket_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+    hashed_key = hashlib.sha1(concat_key.encode())
+    encode_key = base64.b64encode(hashed_key.digest())
+    return encode_key
+
+
 # tcp handler --> handles incoming request
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     clients = []
@@ -275,6 +282,16 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                                                  request=self.request)
 
                     new_response(code="301", location="/login", request=self.request)
+                
+                elif data_dict["URL"] == "/websocket":
+
+                    web_socket_key = (data_dict[12].split(":")[1]).strip() # not sure where to get the exact weboscket key from in data_dict 
+                    
+                    encoded_key = accept_response(web_socket_key)
+                    # converts key to string 
+                    encoded_key = str(encoded_key, "ascii")  
+
+                    self.request.sendall(("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Accept: " + encoded_key + "\r\n\r\n").encode())
 
                 else:
                     # Load other file types
