@@ -9,6 +9,7 @@ import bcrypt
 import random
 import string
 import hashlib
+import socketio
 
 from pymongo import MongoClient
 
@@ -196,6 +197,7 @@ def find_cookie(cookies, find):
 
     return ""
 
+
 # find the user that has the matching hash
 def match_user(hashes, hashed):
     for h in hashes:
@@ -206,6 +208,7 @@ def match_user(hashes, hashed):
         if hashed == hashedtoken:
             return user
     return ""
+
 
 # tcp handler --> handles incoming request
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
@@ -262,6 +265,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 elif data_dict["URL"] == "/user":
                     print(data_dict)
                     content = open("./static/home.html").read()
+                    return new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                                        request=self.request)
                     if "Cookie" in data_dict:
                         hashToken = find_cookie(data_dict["Cookie"], "user_token")
                         if hashToken != "":
@@ -275,7 +280,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                                                  request=self.request)
 
                     new_response(code="301", location="/login", request=self.request)
-
                 else:
                     # Load other file types
                     pages = []
@@ -283,6 +287,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     # The path for listing items
                     css_path = './static/css'
                     js_path = './static/js'
+                    png_path = './static/image'
 
                     # The list of items
                     css_files = os.listdir(css_path)
@@ -301,7 +306,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     if data_dict["URL"] in pages:
                         # load file
                         filename = request_line[1][1:]
-                        content = open("./static/" + filename).read()
+                        content = open("./static/" + filename, encoding="utf8").read()
+                        print("./static/" + filename)
 
                         # css file
                         if ".css" in filename:
@@ -462,6 +468,6 @@ if __name__ == "__main__":
         print("Server loop running in thread:", server_thread.name)
         sys.stdout.flush()
 
-        find_cookie("user_token=cKl9jd/uFh0QIxzcbyZIE88wOwuNFq4MnGZrzXasgxc=", "user_token")
+        # find_cookie("user_token=cKl9jd/uFh0QIxzcbyZIE88wOwuNFq4MnGZrzXasgxc=", "user_token")
 
         server.serve_forever()
