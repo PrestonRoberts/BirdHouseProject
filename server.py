@@ -9,16 +9,17 @@ import bcrypt
 import random
 import string
 import hashlib
-import socketio
-
 from pymongo import MongoClient
 
 # connect to database
+from socket_server import SocketClass
+
 mongo_client = MongoClient("mongo")  # docker
 
 # create/get database
 db = mongo_client["birdhouse_db"]
 user_collection = db["users"]
+Sockets = SocketClass()
 
 
 # new response
@@ -280,6 +281,14 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                                                  request=self.request)
 
                     new_response(code="301", location="/login", request=self.request)
+                elif data_dict["URL"] == "/websocket":
+
+                    socket_key = data_dict["Sec-WebSocket-Key"]
+                    tokenbytes = base64.b64encode(
+                        hashlib.sha1((socket_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode('utf-8')).digest())
+                    hashedtoken = tokenbytes.decode('ascii')
+                    new_response(code="101", hash_key=hashedtoken, request=self.request)
+                    Sockets.add_client(hashedtoken, self)
                 else:
                     # Load other file types
                     pages = []
@@ -467,7 +476,5 @@ if __name__ == "__main__":
         server_thread.start()
         print("Server loop running in thread:", server_thread.name)
         sys.stdout.flush()
-
-        # find_cookie("user_token=cKl9jd/uFh0QIxzcbyZIE88wOwuNFq4MnGZrzXasgxc=", "user_token")
 
         server.serve_forever()

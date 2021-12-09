@@ -12,9 +12,10 @@
     <div class="chatbox_menu">
         <div style="width: 70%;float: left;" >
             <div class="chatFlow"  id="chat"></div>
+            <label id="to_msg"></label>
             <label id="message_status">All</label>
             <input id="message"  type="text" class="bottom chatbox" >
-            <button id="sendBtn" onclick="addMessage(document.getElementById('message').value)" class="bottom">Send</button>
+            <button id="sendBtn" onclick="sendMessage()" class="bottom">Send</button>
         </div>
          <div style="height: 805px;float: right;width: 30%;">
              <div id="friendsMenu" class="friends_menu">
@@ -61,23 +62,30 @@
     // Read the name/comment the user is sending to chat and send it to the server over the WebSocket as a JSON string
     // Called whenever the user clicks the Send button or pressed enter
     function sendMessage() {
-        const chatName = document.getElementById("chat-name").value;
-        const chatBox = document.getElementById("chat-comment");
+        const chatName = document.getElementById('welcomepage').innerText.slice(8);
+        const chatBox = document.getElementById('message');
         const comment = chatBox.value;
+        const who = document.getElementById('message_status').innerText;
         chatBox.value = "";
         chatBox.focus();
         if(comment !== "") {
-            socket.send(JSON.stringify({'username': chatName, 'comment': comment}));
+            socket.send(JSON.stringify({
+                'username': chatName,
+                'comment': comment,
+                'who': who,
+            }));
         }
     }
 
     // Called when the server sends a new message over the WebSocket and renders that message so the user can read it
     function addMessage(message) {
-        //const chatMessage = JSON.parse(message.data);
-        if (message === "")return
-        let chat = document.getElementById('chat');
-        chat.innerHTML += "<b>" + document.getElementById('welcomepage').innerText.slice(8) + "</b>: " + message + "<br/>";
-        document.getElementById('message').value = ""
+        const chatMessage = JSON.parse(message.data);
+        if(chatMessage.who === "All"){
+            chat.innerHTML += "<b>" + chatMessage.username + "</b>: " + chatMessage.comment + "<br/>";
+            document.getElementById('message').value = ""
+        }else{
+
+        }
     }
 
     function addUser(user){
@@ -107,25 +115,29 @@
 
     function statusChange(status){
         user_div = document.getElementById('user_status');
-        if(status == "online"){
+        if(status === "online"){
             user_div.setAttribute("style","background: green")
-        } else if(status == "dnd"){
+        } else if(status === "dnd"){
             user_div.setAttribute("style","background: red")
-        } else if(status == "away"){
+        } else if(status === "away"){
             user_div.setAttribute("style","background: yellow")
-        } else if(status == "invisible"){
+        } else if(status === "invisible"){
             user_div.setAttribute("style","background: grey")
         }
     }
 </script>
+
  <script>
  $(".user").click(function (e){
      var user = e.target.innerText
-     document.getElementById('message_status').innerText = "To: " + user
+
+     document.getElementById('to_msg').innerText = "To: "
+     document.getElementById('message_status').innerText = user
  })
 
  $(document).keydown(function(e) {
     if (e.originalEvent.key === "Escape"){
+        document.getElementById('to_msg').innerText = ""
         document.getElementById('message_status').innerText = "All"
     }
 });
