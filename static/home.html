@@ -4,15 +4,133 @@
     <meta charset="UTF-8">
     <title>Home Page</title>
     <link rel="stylesheet" type="text/css" href="css/style.css"/>
+    <script src="https://code.jquery.com/jquery-3.5.0.js"></script>
 </head>
 <body>
-    <h1 id="welcome page"></h1>
+    <h1 id="welcomepage"> Welcome Oyal2</h1>
 
-
+    <div class="chatbox_menu">
+        <div style="width: 70%;float: left;" >
+            <div class="chatFlow"  id="chat"></div>
+            <label id="message_status">All</label>
+            <input id="message"  type="text" class="bottom chatbox" >
+            <button id="sendBtn" onclick="addMessage(document.getElementById('message').value)" class="bottom">Send</button>
+        </div>
+         <div style="height: 805px;float: right;width: 30%;">
+             <div id="friendsMenu" class="friends_menu">
+                 <div id="user_status" style="background: green">
+                     <img src="data:image/png;base64,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" width="20" height="20" style="float: left">
+                     <h4 style="margin-top: 0px; margin-bottom: 2px">Oyal2</h4>
+                 </div>
+                 <div style="border-bottom: 4px solid aliceblue;">
+                     <h1 style="margin: 0px;">Friends</h1>
+                 </div>
+                 <div style="background: green" class="user" id="user_kippy">
+                    <img src="data:image/png;base64,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" width="20" height="20" style="float: left">
+                     <h4 style="margin-top: 0px; margin-bottom: 2px">Kippy</h4>
+                 </div>
+                  <div style="background: green" class="user" id="user_ayson">
+                    <img src="data:image/png;base64,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" width="20" height="20" style="float: left">
+                     <h4 style="margin-top: 0px; margin-bottom: 2px">Ayson</h4>
+                 </div>
+             </div>
+             <div>
+                 <select id="status" style="float: right;width: 150px" onchange="statusChange(document.getElementById('status').value)">
+                     <option value="online">Online</option>
+                     <option value="away">Away</option>
+                     <option value="dnd">Do Not Disturb</option>
+                     <option value="invisible">Invisible</option>
+                 </select>
+                 <h4 style="margin-top: 2px; margin-bottom: 2px; margin-right: 2px;  width: 60px;">Status</h4>
+             </div>
+         </div>
 <script>
-    function WelcomePage(){
+     // Establish a WebSocket connection with the server
+    const socket = new WebSocket('ws://' + window.location.host + '/websocket');
+
+    // Call the addMessage function whenever data is received from the server over the WebSocket
+    socket.onmessage = addMessage;
+
+    // Allow users to send messages by pressing enter instead of clicking the Send button
+    document.addEventListener("keypress", function (event) {
+        if (event.code === "Enter") {
+            sendMessage();
+        }
+    });
+
+    // Read the name/comment the user is sending to chat and send it to the server over the WebSocket as a JSON string
+    // Called whenever the user clicks the Send button or pressed enter
+    function sendMessage() {
+        const chatName = document.getElementById("chat-name").value;
+        const chatBox = document.getElementById("chat-comment");
+        const comment = chatBox.value;
+        chatBox.value = "";
+        chatBox.focus();
+        if(comment !== "") {
+            socket.send(JSON.stringify({'username': chatName, 'comment': comment}));
+        }
+    }
+
+    // Called when the server sends a new message over the WebSocket and renders that message so the user can read it
+    function addMessage(message) {
+        //const chatMessage = JSON.parse(message.data);
+        if (message === "")return
+        let chat = document.getElementById('chat');
+        chat.innerHTML += "<b>" + document.getElementById('welcomepage').innerText.slice(8) + "</b>: " + message + "<br/>";
+        document.getElementById('message').value = ""
+    }
+
+    function addUser(user){
+        let menu = document.getElementById('friendsMenu');
+        var div = document.createElement("div")
+        div.setAttribute("style","background: green")
+        div.setAttribute("class","user")
+        div.setAttribute("id","user_" + user)
+
+        var img = document.createElement("img")
+        img.setAttribute("src","data:image/png;base64,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")
+        img.setAttribute("width","20")
+        img.setAttribute("height","20")
+        img.setAttribute("style","float: left")
+        div.appendChild(img);
+
+        var h4 = document.createElement("h4")
+        h4.setAttribute("style","margin-top: 0px; margin-bottom: 2px")
+        h4.innerText = user
+        div.appendChild(h4);
+
+
+        menu.appendChild(div)
+
 
     }
+
+    function statusChange(status){
+        user_div = document.getElementById('user_status');
+        if(status == "online"){
+            user_div.setAttribute("style","background: green")
+        } else if(status == "dnd"){
+            user_div.setAttribute("style","background: red")
+        } else if(status == "away"){
+            user_div.setAttribute("style","background: yellow")
+        } else if(status == "invisible"){
+            user_div.setAttribute("style","background: grey")
+        }
+    }
 </script>
+ <script>
+ $(".user").click(function (e){
+     var user = e.target.innerText
+     document.getElementById('message_status').innerText = "To: " + user
+ })
+
+ $(document).keydown(function(e) {
+    if (e.originalEvent.key === "Escape"){
+        document.getElementById('message_status').innerText = "All"
+    }
+});
+
+ </script>
+
 </body>
 </html>
