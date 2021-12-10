@@ -19,7 +19,6 @@ mongo_client = MongoClient("mongo")  # docker
 # create/get database
 db = mongo_client["birdhouse_db"]
 user_collection = db["users"]
-Sockets = SocketClass()
 
 
 # new response
@@ -34,6 +33,7 @@ def new_response(**kwargs):
                     "Connection: Upgrade\r\n" \
                     "Sec-WebSocket-Accept: " + kwargs["hash_key"] + "\r\n\r\n"
         response = response.encode("utf-8")
+
     # 200
     elif kwargs["code"] == "200":
         content = kwargs["content"]
@@ -203,10 +203,25 @@ def find_cookie(cookies, find):
 def match_user(hashes, hashed):
     for h in hashes:
         user = h["username"]
-        tokenbytes = base64.b64encode(hashlib.sha256(
-            (user + "bcad35b6961a45159348ae8386c934cd").encode()).digest())
-        hashedtoken = tokenbytes.decode('ascii')
-        if hashed == hashedtoken:
+        hashed_user = hash_cookie(user)
+        sys.stdout.flush()
+        if hashed == hashed_user:
+            return user
+    return ""
+
+
+def hash_cookie(obj):
+    tokenbytes = base64.b64encode(hashlib.sha256((obj + "bcad35b6961a45159348ae8386c934cd").encode()).digest())
+    hashedtoken = tokenbytes.decode('ascii')
+    return hashedtoken
+
+
+def find_user_cookie(cookies):
+    hashToken = find_cookie(cookies, "user_token")
+    if hashToken != "":
+        users = list(user_collection.find({}))
+        if len(users) > 0:
+            user = match_user(users, hashToken)
             return user
     return ""
 
@@ -264,23 +279,17 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
                 # user page
                 elif data_dict["URL"] == "/user":
-                    print(data_dict)
                     content = open("./static/home.html").read()
-                    return new_response(code="200", content=content, contentType="text/html", charset="utf-8",
-                                        request=self.request)
+                    # return new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                    #                     request=self.request)
                     if "Cookie" in data_dict:
-                        hashToken = find_cookie(data_dict["Cookie"], "user_token")
-                        if hashToken != "":
-                            users = list(user_collection.find({}))
-                            if len(users) > 0:
-                                user = match_user(users, hashToken)
-                                if user != "":
-                                    content = content.replace("<h1 id=\"welcome page\"></h1>",
-                                                              "<h1 id=\"welcome page\">Welcome " + user + "</h1>", 1)
-                                    new_response(code="200", content=content, contentType="text/html", charset="utf-8",
-                                                 request=self.request)
-
-                    new_response(code="301", location="/login", request=self.request)
+                        user = find_user_cookie(data_dict["Cookie"])
+                        if user != "":
+                            content = content.replace("Welcome Dummyyyyyyyy", "Welcome " + user, 1)
+                            new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                                         request=self.request)
+                    else:
+                        new_response(code="301", location="/login", request=self.request)
                 elif data_dict["URL"] == "/websocket":
 
                     socket_key = data_dict["Sec-WebSocket-Key"]
@@ -288,7 +297,10 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         hashlib.sha1((socket_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode('utf-8')).digest())
                     hashedtoken = tokenbytes.decode('ascii')
                     new_response(code="101", hash_key=hashedtoken, request=self.request)
-                    Sockets.add_client(hashedtoken, self)
+                    user = find_user_cookie(data_dict["Cookie"])
+                    #user = "Oyal2"
+                    socket = SocketClass(find_cookie(data_dict["Cookie"], "user_token"), user, self, "online")
+                    socket.add_client()
                 else:
                     # Load other file types
                     pages = []
@@ -316,7 +328,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         # load file
                         filename = request_line[1][1:]
                         content = open("./static/" + filename, encoding="utf8").read()
-                        print("./static/" + filename)
 
                         # css file
                         if ".css" in filename:
@@ -356,8 +367,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     username = form_dict["username"]
                     password = form_dict["password"]
 
-                    print(password)
-
                     # check if user can log in
                     is_valid = True
 
@@ -369,18 +378,13 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
                     # check if password matches
                     if is_valid:
-                        print(user["password"])
                         if bcrypt.checkpw(password.encode(), user["password"]):
                             # TODO authenticate user
-                            tokenBytes = base64.b64encode(hashlib.sha256(
-                                (user["username"] + "bcad35b6961a45159348ae8386c934cd").encode()).digest())
-                            user_token = tokenBytes.decode('ascii')
-                            print(user_token)
+                            user_token = hash_cookie(user["username"])
 
                             # redirect user to home page
                             content = open("./static/home.html").read()
-                            content = content.replace("<h1 id=\"welcome page\"></h1>",
-                                                      "<h1 id=\"welcome page\">Welcome " + username + "</h1>", 1)
+                            content = content.replace("Welcome Dummyyyyyyyy", "Welcome " + user["username"], 1)
                             new_response(code="200", content=content, contentType="text/html", charset="utf-8",
                                          request=self.request, token=user_token)
                         else:
@@ -389,7 +393,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     # do not log in the user
                     if not is_valid:
                         # TODO display error message on webpage
-                        print("Username or password is incorrect")
 
                         # load login page
                         new_response(code="301", location="/login", request=self.request)
