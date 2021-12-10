@@ -91,6 +91,14 @@ def new_response(**kwargs):
 
     request.sendall(response)
 
+def bytes_reading(variable) :
+
+        image_file = open( "%s.jpg" % variable, "rb")
+        image_read_file = image_file.read()
+        byte_size = len(image_read_file)
+        image_file.close     
+        return byte_size
+
 
 # clean string
 def clean_string(input_str):
@@ -102,6 +110,40 @@ def clean_string(input_str):
     clean_str = clean_str.replace(">", "&gt")
 
     return clean_str
+
+def render(image) :
+
+        image += ".jpg"
+        rendered_image =  " <img src=image/" + image + ">"
+        
+        return rendered_image
+
+def byte_content(variable) :
+        image_file = open( "%s.jpg" % variable, "rb") 
+        image_read_file = image_file.read()
+        image_file.close
+
+        return image_read_file
+
+def html_files(html_format, image_strings, name) :
+
+        temp_tags= ""
+
+        with open(html_format) as html_file:
+            read_this = html_file.read()
+            
+            replace_name = read_this.replace("<title>{{name}}</title>", "<title>welcome human" + name + "</title>")
+            for i in image_strings :
+
+                temp_tags+= render(i)
+
+            replace_images = replace_name.replace("{{image_holder}}", temp_tags)
+            
+            
+
+        return replace_images
+        
+
 
 
 # convert to normal string
@@ -270,6 +312,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 elif data_dict["URL"] == "/user":
                     print(data_dict)
                     content = open("./static/home.html").read()
+
                     return new_response(code="200", content=content, contentType="text/html", charset="utf-8",
                                         request=self.request)
                     if "Cookie" in data_dict:
@@ -303,11 +346,17 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     # The path for listing items
                     css_path = './static/css'
                     js_path = './static/js'
-                    png_path = './static/image'
+                    jpg_path = './static/image'
 
                     # The list of items
                     css_files = os.listdir(css_path)
                     js_files = os.listdir(js_path)
+                    jpg_files = os.listdir(jpg_path)
+
+                    #loops through images
+                    for filename in jpg_files:
+                        if '.' in filename:
+                            pages.append("/image/" + filename)
 
                     # Loop to get all files
                     for filename in css_files:
@@ -336,6 +385,11 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                             content_type = "text/javascript"
                             new_response(code="200", content=content, contentType=content_type, charset="utf-8",
                                          request=self.request)
+                                         
+                        elif ".jpg" in filename: # not sure if we're using jpgs
+                            content_type = "image/jpg"
+                            new_response(code="200", content=content, content_type =content_type,  charset ="utf-8",
+                            request = self.request)
 
                         # 404 Error
                         else:
