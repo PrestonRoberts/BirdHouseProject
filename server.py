@@ -313,8 +313,9 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     print(data_dict)
                     content = open("./static/home.html").read()
 
-                    return new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                    new_response(code="200", content=content, contentType="text/html", charset="utf-8",
                                         request=self.request)
+                                        
                     if "Cookie" in data_dict:
                         hashToken = find_cookie(data_dict["Cookie"], "user_token")
                         if hashToken != "":
