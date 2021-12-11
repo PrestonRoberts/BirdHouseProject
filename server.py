@@ -345,7 +345,8 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     new_response(code="101", hash_key=hashedtoken, request=self.request)
                     user = find_user_cookie(data_dict["Cookie"])
                     #user = "Oyal2"
-                    socket = SocketClass(find_cookie(data_dict["Cookie"], "user_token"), user, self, "online")
+                    status = user_collection.find_one({"username": user}).get('status')
+                    socket = SocketClass(find_cookie(data_dict["Cookie"], "user_token"), user, self, status)
                     socket.add_client()
                 else:
                     # Load other file types
@@ -508,7 +509,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         encrypted_pass = bcrypt.hashpw(password.encode(), salt)
 
                         # store username and password in database
-                        new_entry = {"username": username, "password": encrypted_pass}
+                        new_entry = {"username": username, "password": encrypted_pass, "status": "online"}
                         user_collection.insert_one(new_entry)
 
                         # TODO display success message on webpage
@@ -531,6 +532,14 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                                  request=self.request)
                 elif data_dict["URL"] == "/image-upload":
                     print()
+                elif data_dict["URL"] == "/user_info":
+                    query = {"username": form_dict["username"]}
+                    user = user_collection.find_one(query)
+                    if user is None:
+                        return
+                    else:
+                        new_response(code="200", content=user, contentType="application/json",
+                                     request=self.request)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -553,5 +562,7 @@ if __name__ == "__main__":
         server_thread.start()
         print("Server loop running in thread:", server_thread.name)
         sys.stdout.flush()
+
+
 
         server.serve_forever()

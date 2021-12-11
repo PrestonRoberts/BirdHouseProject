@@ -115,6 +115,11 @@ class SocketClass:
                     self.send_specific2(payload, js["who"])
                 elif js["function"] == "tie":
                     self.send_specific2(payload, js["who"])
+                elif js["function"] == "status_change":
+                    query = {"username": js["username"]}
+                    database.user_collection.update_one(query,{ "$set": { "status": js["status"] } })
+                    ClientSockets[self.clientid][2] = js["status"]
+                    self.send_all(payload)
             if len(payload) == 2:
                 del ClientSockets[self.clientid]
                 break

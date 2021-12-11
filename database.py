@@ -7,7 +7,6 @@ db = mongo_client["birdhouse_db"]
 user_collection = db["users"]
 chats = db["general_chat"]
 
-
 def collection_exists(name):
     if name in db.list_collection_names():
         return True
