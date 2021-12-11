@@ -344,7 +344,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     hashedtoken = tokenbytes.decode('ascii')
                     new_response(code="101", hash_key=hashedtoken, request=self.request)
                     user = find_user_cookie(data_dict["Cookie"])
-                    #user = "Oyal2"
+                    # user = "Oyal2"
                     status = user_collection.find_one({"username": user}).get('status')
                     socket = SocketClass(find_cookie(data_dict["Cookie"], "user_token"), user, self, status)
                     socket.add_client()
@@ -527,19 +527,34 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                         new_response(code="301", location="/register", request=self.request)
 
                 elif data_dict["URL"] == "/chat_logs":
-                    js = database.get_documents(form_dict["collection"])
-                    new_response(code="200", content=js, contentType="application/json",
-                                 request=self.request)
+                    if "Cookie" in data_dict:
+                        user = find_user_cookie(data_dict["Cookie"])
+                        if user != "":
+                            users = form_dict["collection"].split("_", 1)
+                            for u in users:
+                                if user == u:
+                                    js = database.get_documents(form_dict["collection"])
+                                    return new_response(code="200", content=js, contentType="application/json",
+                                                 request=self.request)
+                                    break
+
+
+                    return new_response(code="301", location="/login", request=self.request)
+
                 elif data_dict["URL"] == "/image-upload":
                     print()
                 elif data_dict["URL"] == "/user_info":
-                    query = {"username": form_dict["username"]}
-                    user = user_collection.find_one(query)
-                    if user is None:
-                        return
-                    else:
-                        new_response(code="200", content=user, contentType="application/json",
-                                     request=self.request)
+                    if "Cookie" in data_dict:
+                        user = find_user_cookie(data_dict["Cookie"])
+                        if user != "":
+                            query = {"username": form_dict["username"]}
+                            user = user_collection.find_one(query)
+                            if user is None:
+                                return
+                            else:
+                                new_response(code="200", content=user, contentType="application/json",
+                                             request=self.request)
+                    return new_response(code="301", location="/login", request=self.request)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -562,7 +577,5 @@ if __name__ == "__main__":
         server_thread.start()
         print("Server loop running in thread:", server_thread.name)
         sys.stdout.flush()
-
-
 
         server.serve_forever()
