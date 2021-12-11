@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import time
+import database
 
 ClientSockets = {}
 
@@ -66,14 +67,20 @@ class SocketClass:
             if not data:
                 break
             payload = self.decode_frame(data)
-            #print(payload)
+            # print(payload)
             if len(payload) > 2:
                 js = json.loads(payload.decode("utf-8"))
                 if js["function"] == "message":
                     if "who" in js:
                         if js["who"] == "All":
+                            database.insert_document("general_chat",
+                                                     {"username": js["username"], "comment": js["comment"]})
                             self.send_all(payload)
                         else:
+                            database.insert_document(js["username"] + "_" + js["who"],
+                                                     {"username": js["username"], "comment": js["comment"]})
+                            database.insert_document(js["who"] + "_" + js["username"],
+                                                     {"username": js["username"], "comment": js["comment"]})
                             self.send_specific(payload, js["who"])
                 elif js["function"] == "getusers":
                     send_json = {"function": "getusers"}

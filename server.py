@@ -9,16 +9,13 @@ import bcrypt
 import random
 import string
 import hashlib
-from pymongo import MongoClient
 
 # connect to database
+from bson import json_util
+
+import database
+from database import user_collection
 from socket_server import SocketClass
-
-mongo_client = MongoClient("mongo")  # docker
-
-# create/get database
-db = mongo_client["birdhouse_db"]
-user_collection = db["users"]
 
 
 # new response
@@ -37,8 +34,10 @@ def new_response(**kwargs):
     # 200
     elif kwargs["code"] == "200":
         content = kwargs["content"]
-        if kwargs["contentType"] != "image/jpeg":
+        if kwargs["contentType"] != "image/jpeg" and kwargs["contentType"] != "application/json":
             content = content.encode("utf-8")
+        if kwargs["contentType"] == "application/json":
+            content = json_util.dumps(content).encode('utf8')
         response += "200 OK" + "\r\n"
         if "visits" in kwargs:
             response += "Set-Cookie: visits=" + kwargs["visits"] + "; Max-Age=3600" + "\r\n"
@@ -52,6 +51,7 @@ def new_response(**kwargs):
         response += "Content-Length: " + str(len(content)) + "\r\n" \
                                                              "X-Content-Type-Options: nosniff" + "\r\n\r\n"
         response = response.encode("utf-8") + content
+
     # 201
     elif kwargs["code"] == "201":
         content = json.dumps(kwargs["content"], default=str).encode("utf-8")
@@ -90,6 +90,7 @@ def new_response(**kwargs):
                     kwargs["content"]
         response = response.encode("utf-8")
 
+        print(response)
     request.sendall(response)
 
 
@@ -226,6 +227,44 @@ def find_user_cookie(cookies):
     return ""
 
 
+def bytes_reading(variable):
+    image_file = open("%s.jpg" % variable, "rb")
+    image_read_file = image_file.read()
+    byte_size = len(image_read_file)
+    image_file.close()
+    return byte_size
+
+
+def render(image):
+    image += ".jpg"
+    rendered_image = " <img src=image/" + image + ">"
+
+    return rendered_image
+
+
+def byte_content(variable):
+    image_file = open("%s.jpg" % variable, "rb")
+    image_read_file = image_file.read()
+    image_file.close()
+
+    return image_read_file
+
+
+def html_files(html_format, image_strings, name):
+    temp_tags = ""
+
+    with open(html_format) as html_file:
+        read_this = html_file.read()
+
+        replace_name = read_this.replace("<title>{{name}}</title>", "<title>welcome human" + name + "</title>")
+        for i in image_strings:
+            temp_tags += render(i)
+
+        replace_images = replace_name.replace("{{image_holder}}", temp_tags)
+
+    return replace_images
+
+
 # tcp handler --> handles incoming request
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     clients = []
@@ -236,10 +275,10 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         data = data.strip()
 
         # convert data into http request
-        string_data = str(data, "UTF-8")
-
+        string_data = str(data, "utf-8", errors='ignore')
         # split data
         data_split = string_data.split("\r\n")
+        print(string_data)
 
         if string_data != "":
             # split data into an array
@@ -308,11 +347,17 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     # The path for listing items
                     css_path = './static/css'
                     js_path = './static/js'
-                    png_path = './static/image'
+                    jpg_path = './static/image'
 
                     # The list of items
                     css_files = os.listdir(css_path)
                     js_files = os.listdir(js_path)
+                    jpg_files = os.listdir(jpg_path)
+
+                    # loops through images
+                    for filename in jpg_files:
+                        if '.' in filename:
+                            pages.append("/image/" + filename)
 
                     # Loop to get all files
                     for filename in css_files:
@@ -340,7 +385,10 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                             content_type = "text/javascript"
                             new_response(code="200", content=content, contentType=content_type, charset="utf-8",
                                          request=self.request)
-
+                        elif ".jpg" in filename:  # not sure if we're using jpgs
+                            content_type = "image/jpg"
+                            new_response(code="200", content=content, content_type=content_type, charset="utf-8",
+                                         request=self.request)
                         # 404 Error
                         else:
                             content = open("./static/404.html").read()
@@ -349,17 +397,32 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
             # post request
             elif data_dict["Request"] == "POST":
-                # get form data
-                form_data = string_data.split("\r\n\r\n")[1]
-                form_data = form_data.split("&")
                 form_dict = {}
-                for f in form_data:
-                    v = f.split("=")
-                    key = v[0]
-                    value = clean_string(v[1])
-                    form_dict[key] = value
 
-                # print(form_dict)
+                if "multipart/form-data" in data_dict["Content-Type"]:
+                    boundary = data_dict["Content-Type"][data_dict["Content-Type"].index("boundary=") + 9:]
+                    if boundary not in data_list:
+                        return
+
+                    form_data = data_list[data_list.index(boundary) + 3:len(data_list) - 1]
+                    form_dict[boundary] = "".join(form_data)
+                    # for f in form_data:
+                    #     #v = f.split("\r\n\r\n")
+                    #     key = v[0]
+                    #     value = clean_string(v[1])
+                    #     form_dict[key] = value
+                else:
+                    # get form data
+                    form_data = string_data.split("\r\n\r\n")[1]
+                    form_data = form_data.split("&")
+                    if data_dict["Content-Type"] == "application/json":
+                        form_dict = json.loads(form_data[0])
+                    else:
+                        for f in form_data:
+                            v = f.split("=")
+                            key = v[0]
+                            value = clean_string(v[1])
+                            form_dict[key] = value
 
                 # TODO user login
                 if data_dict["URL"] == "/user":
@@ -379,7 +442,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     # check if password matches
                     if is_valid:
                         if bcrypt.checkpw(password.encode(), user["password"]):
-                            # TODO authenticate user
                             user_token = hash_cookie(user["username"])
 
                             # redirect user to home page
@@ -403,8 +465,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     username = form_dict["username"]
                     password = form_dict["password"]
                     confirm_password = form_dict["confirm_password"]
-
-                    print(password)
 
                     # check if inputs are all valid
                     is_valid = True
@@ -457,6 +517,13 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
                         # load register page
                         new_response(code="301", location="/register", request=self.request)
+
+                elif data_dict["URL"] == "/chat_logs":
+                    js = database.get_documents(form_dict["collection"])
+                    new_response(code="200", content=js, contentType="application/json",
+                                 request=self.request)
+                elif data_dict["URL"] == "/image-upload":
+                    print()
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

@@ -7,8 +7,8 @@
     <script src="https://code.jquery.com/jquery-3.5.0.js"></script>
 </head>
 <body>
-    <h1 id="welcomepage"> Welcome Dummyyyyyyyy</h1>
-
+    <h1 style="margin-left: 25px" id="welcomepage">Welcome Dummyyyyyyyy</h1>
+    <h2 id="chat_label" style="margin-bottom: 0px; margin-left: 25px">General Chat</h2>
     <div class="chatbox_menu">
         <div style="width: 70%;float: left;" >
             <div class="chatFlow"  id="chat"></div>
@@ -47,17 +47,32 @@
          </div>
     </div>
     <div class="game_menu">
-    </div>
+         <center>Higher Card</center>
+         <div style="height: 450px;" id="challenge_friends">
 
+         </div>
+         <button style="margin-left: 45%;">Challenge</button>
+    </div>
+    <div  >
+        <form action="/image-upload" id="image-form" method="post" enctype="multipart/form-data">
+               <label for="form-file" style="margin-left: 25px;">Wallpaper Upload: </label>
+               <input id="form-file" type="file" name="upload" accept=".jpg" >
+               <br/>
+               <input style="margin-left: 25px;" type="submit" value="Submit">
+        </form>
+
+    </div>
 
 <script>
      // Establish a WebSocket connection with the server
-    const socket = new WebSocket('ws://' + window.location.host + '/websocket');
+     const socket = new WebSocket('ws://' + window.location.host + '/websocket');
+     const main_user = document.getElementById('welcomepage').innerText.slice(8)
+
 
     // Call the addMessage function whenever data is received from the server over the WebSocket
     socket.onmessage = handleFunction;
 
-    document.getElementById('user_name').innerText = document.getElementById('welcomepage').innerText.slice(8)
+    document.getElementById('user_name').innerText = main_user
 
     // Allow users to send messages by pressing enter instead of clicking the Send button
     document.addEventListener("keypress", function (event) {
@@ -67,12 +82,13 @@
     });
 
     getusers();
+    GetChat("general_chat");
 
     function getusers(){
         setTimeout(function(){
         socket.send(JSON.stringify({
                 'function': "getusers",
-                'username': document.getElementById('welcomepage').innerText.slice(8)}));
+                'username': main_user}));
         console.log("sent")
         }, 1000);
 
@@ -82,7 +98,6 @@
     // Read the name/comment the user is sending to chat and send it to the server over the WebSocket as a JSON string
     // Called whenever the user clicks the Send button or pressed enter
     function sendMessage() {
-        const chatName = document.getElementById('welcomepage').innerText.slice(8);
         const chatBox = document.getElementById('message');
         const comment = chatBox.value;
         const who = document.getElementById('message_status').innerText;
@@ -91,7 +106,7 @@
         if(comment !== "") {
             socket.send(JSON.stringify({
                 'function': "message",
-                'username': chatName,
+                'username': main_user,
                 'comment': comment,
                 'who': who,
             }));
@@ -103,17 +118,25 @@
         console.log(message)
         const chatMessage = JSON.parse(message.data);
         if(chatMessage.who === "All"){
-            chat.innerHTML += "<b>" + chatMessage.username + "</b>: " + chatMessage.comment + "<br/>";
+            addText(chatMessage)
         }else{
-
-            if(document.getElementById('welcomepage').innerText.slice(8) !== chatMessage.username){
+            if(main_user !== chatMessage.username){
                 //chat.innerHTML += "<b> From " + chatMessage.username + "</b>: " + chatMessage.comment + "<br/>";
                 console.log("user_" + chatMessage.username)
-                document.getElementById("user_" + chatMessage.username).classList.add("notification");
+                if(document.getElementById('chat_label').innerText === "Private Message: " + chatMessage.username){
+                    addText(chatMessage)
+                } else {
+                    document.getElementById("user_" + chatMessage.username).classList.add("notification");
+                }
             } else {
-                chat.innerHTML += "<b>" + chatMessage.username + "</b>: " + chatMessage.comment + "<br/>";
+                addText(chatMessage)
             }
         }
+    }
+
+    function addText(chatMessage){
+        let chat = document.getElementById('chat');
+        chat.innerHTML += "<b>" + chatMessage.username + "</b>: " + chatMessage.comment + "<br/>";
     }
 
     function handleFunction(message){
@@ -131,7 +154,7 @@
     }
 
     function addUser(user,status){
-        if(document.getElementById('welcomepage').innerText.slice(8) === user){
+        if(main_user === user){
             return
         }
 
@@ -149,11 +172,13 @@
         div.setAttribute("class","user")
         div.setAttribute("id","user_" + user)
         div.onclick = function (e){
-             var user = e.target.innerText
+            var user = e.target.innerText
             document.getElementById("user_" + user).classList.remove("notification");
-            console.log("Remove")
-             document.getElementById('to_msg').innerText = "To: "
-             document.getElementById('message_status').innerText = user
+            document.getElementById('to_msg').innerText = "To: "
+            document.getElementById('message_status').innerText = user
+            document.getElementById('chat_label').innerText = "Private Message: " + user
+            document.getElementById('chat').innerHTML = ""
+            GetChat(user + "_" +  main_user)
          }
         var img = document.createElement("img")
         img.setAttribute("src","data:image/png;base64,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")
@@ -169,6 +194,7 @@
 
 
         menu.appendChild(div)
+        document.getElementById('challenge_friends').appendChild(div)
 
 
     }
@@ -186,24 +212,53 @@
         }
     }
 
+    function GetChat(chat){
+        let xml = new XMLHttpRequest();
+        var json = {
+            "collection" : chat,
+        }
+
+        xml.open("POST","/chat_logs")
+        xml.setRequestHeader("Content-Type", "application/json");
+        console.log(json)
+        xml.send(JSON.stringify(json))
+        xml.onreadystatechange = function() {
+            if (xml.readyState === 4 && xml.status === 200) {
+                var j = JSON.parse(xml.responseText)
+                console.log(j)
+                for(var i = 0; i < j.length; i++){
+                    var message = {"username":j[i].username,"comment":j[i].comment}
+                    addText(message)
+                }
+            }
+        };
+    }
 
 </script>
 
  <script>
- $(".user").click(function (e){
-     var user = e.target.innerText
-     document.getElementById('to_msg').innerText = "To: "
-     document.getElementById('message_status').innerText = user
- })
-
  $(document).keydown(function(e) {
     if (e.originalEvent.key === "Escape"){
+        document.getElementById('chat').innerHTML = ""
         document.getElementById('to_msg').innerText = ""
         document.getElementById('message_status').innerText = "All"
+        document.getElementById('chat_label').innerText = "General Chat"
+        GetChat("general_chat")
     }
 });
 
  </script>
+
+<script>
+    const fileUpload = document.getElementById("wallpaper_upload");
+
+     document.getElementById("fake_btn").onclick = function() {
+        fileUpload.click();
+     };
+     fileUpload.onchange = function (){
+         alert(fileUpload.files[0]);
+     }
+</script>
 
 </body>
 </html>
