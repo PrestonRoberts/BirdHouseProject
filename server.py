@@ -278,7 +278,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         string_data = str(data, "utf-8", errors='ignore')
         # split data
         data_split = string_data.split("\r\n")
-        print(string_data)
 
         if string_data != "":
             # split data into an array
@@ -300,9 +299,17 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             if data_dict["Request"] == "GET":
                 # landing page
                 if data_dict["URL"] == "/":
-                    content = open("./static/index.html").read()
-                    new_response(code="200", content=content, contentType="text/html", charset="utf-8",
-                                 request=self.request)
+                    content = open("./static/home.html").read()
+                    # return new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                    #                     request=self.request)
+                    if "Cookie" in data_dict:
+                        user = find_user_cookie(data_dict["Cookie"])
+                        if user != "":
+                            content = content.replace("Welcome Dummyyyyyyyy", "Welcome " + user, 1)
+                            new_response(code="200", content=content, contentType="text/html", charset="utf-8",
+                                         request=self.request)
+                    else:
+                        new_response(code="301", location="/login", request=self.request)
 
                 # login page
                 elif data_dict["URL"] == "/login":

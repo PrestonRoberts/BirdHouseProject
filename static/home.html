@@ -47,11 +47,17 @@
          </div>
     </div>
     <div class="game_menu">
-         <center>Higher Card</center>
+         <center>Higher Number Game</center>
          <div style="height: 450px;" id="challenge_friends">
 
          </div>
-         <button style="margin-left: 45%;">Challenge</button>
+        <button id="challenge_button" style="margin-left: 45%;" onclick="Challenge_User()">Challenge</button>
+        <div style="height: 450px;" id="challenge_page" hidden>
+            <h1 style="text-align: center" id="waiting_text">Waiting for</h1>
+            <h1 style="text-align: center" id="waiting_user"></h1>
+            <h1 style="text-align: center" id="result"></h1>
+            <h1 style="text-align: center" id="result_text"></h1>
+        </div>
     </div>
     <div  >
         <form action="/image-upload" id="image-form" method="post" enctype="multipart/form-data">
@@ -115,14 +121,12 @@
 
     // Called when the server sends a new message over the WebSocket and renders that message so the user can read it
     function addMessage(message) {
-        console.log(message)
         const chatMessage = JSON.parse(message.data);
         if(chatMessage.who === "All"){
             addText(chatMessage)
         }else{
             if(main_user !== chatMessage.username){
                 //chat.innerHTML += "<b> From " + chatMessage.username + "</b>: " + chatMessage.comment + "<br/>";
-                console.log("user_" + chatMessage.username)
                 if(document.getElementById('chat_label').innerText === "Private Message: " + chatMessage.username){
                     addText(chatMessage)
                 } else {
@@ -141,15 +145,43 @@
 
     function handleFunction(message){
         const jsonMsg = JSON.parse(message.data);
+        console.log(jsonMsg)
         if (jsonMsg.function === "message"){
             return addMessage(message)
         } else if(jsonMsg.function === "addusers"){
 
         } else if(jsonMsg.function === "getusers"){
-            console.log(jsonMsg.users)
             for(var i = 0; i < jsonMsg.users.length; i++){
                 addUser(jsonMsg.users[i].user,jsonMsg.users[i].status)
             }
+        } else if(jsonMsg.function === "challenge") {
+            addMessage(message)
+            if (document.getElementById("waiting_user").innerText === jsonMsg.username) {
+                var num = Math.floor(Math.random() * 100);
+                Play(num, -1000)
+            }
+        }
+        else if(jsonMsg.function === "play"){
+            console.log(jsonMsg)
+            if(document.getElementById("waiting_user").innerText === jsonMsg.username){
+                var num = Math.floor(Math.random() * 100);
+                Play(jsonMsg.number,num)
+            }
+        } else if(jsonMsg.function === "lost"){
+            document.getElementById("waiting_user").innerText = ""
+            document.getElementById("waiting_text").innerText = ""
+            document.getElementById("result").innerText = jsonMsg.winner + " > " + jsonMsg.loser;
+                document.getElementById("result_text").innerText = "You Lost"
+        } else if(jsonMsg.function === "won"){
+            document.getElementById("waiting_user").innerText = ""
+            document.getElementById("waiting_text").innerText = ""
+                document.getElementById("result").innerText = jsonMsg.loser + " < " + jsonMsg.winner;
+            document.getElementById("result_text").innerText = "You Won"
+        } else if(jsonMsg.function === "tie"){
+            document.getElementById("waiting_user").innerText = ""
+            document.getElementById("waiting_text").innerText = ""
+                document.getElementById("result").innerText = jsonMsg.winner + " = " + jsonMsg.loser;
+            document.getElementById("result_text").innerText = "Its a Tie"
         }
     }
 
@@ -192,8 +224,39 @@
         h4.innerText = user
         div.appendChild(h4);
 
-
         menu.appendChild(div)
+
+        var div = document.createElement("div")
+        if(status === "online"){
+            div.setAttribute("style","background: green")
+        } else if(status === "dnd"){
+            div.setAttribute("style","background: red")
+        } else if(status === "away"){
+            div.setAttribute("style","background: yellow")
+        } else if(status === "invisible"){
+            div.setAttribute("style","background: grey")
+        }
+        div.setAttribute("class","user")
+        div.setAttribute("id","user_challenge_" + user)
+        div.onclick = function (e){
+            var user = e.target.innerText
+            document.getElementById('to_msg').innerText = "To: "
+            document.getElementById('message_status').innerText = user
+            document.getElementById('chat_label').innerText = "Private Message: " + user
+            document.getElementById('chat').innerHTML = ""
+            GetChat(user + "_" +  main_user)
+         }
+        var img = document.createElement("img")
+        img.setAttribute("src","data:image/png;base64,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")
+        img.setAttribute("width","20")
+        img.setAttribute("height","20")
+        img.setAttribute("style","float: left")
+        div.appendChild(img);
+
+        var h4 = document.createElement("h4")
+        h4.setAttribute("style","margin-top: 0px; margin-bottom: 2px")
+        h4.innerText = user
+        div.appendChild(h4);
         document.getElementById('challenge_friends').appendChild(div)
 
 
@@ -220,12 +283,10 @@
 
         xml.open("POST","/chat_logs")
         xml.setRequestHeader("Content-Type", "application/json");
-        console.log(json)
         xml.send(JSON.stringify(json))
         xml.onreadystatechange = function() {
             if (xml.readyState === 4 && xml.status === 200) {
                 var j = JSON.parse(xml.responseText)
-                console.log(j)
                 for(var i = 0; i < j.length; i++){
                     var message = {"username":j[i].username,"comment":j[i].comment}
                     addText(message)
@@ -234,6 +295,81 @@
         };
     }
 
+
+    function Challenge_User(){
+        if(document.getElementById('to_msg').innerText === ""){
+            return
+        }
+
+        socket.send(JSON.stringify({
+                'function': "challenge",
+                'username': main_user,
+                'who': document.getElementById('message_status').innerText
+        }))
+
+        document.getElementById("challenge_friends").hidden = true
+        document.getElementById("challenge_button").hidden = true
+        document.getElementById("challenge_page").hidden = false
+         document.getElementById("waiting_user").innerText = document.getElementById('message_status').innerText
+    }
+
+    function Play(p1,p2) {
+        if(p2 < 0){
+            socket.send(JSON.stringify({
+            'function': "play",
+            'username': main_user,
+            'who': document.getElementById('message_status').innerText,
+            'number': p1,
+        }))
+            console.log(p1)
+            console.log(JSON.stringify({
+            'function': "play",
+            'username': main_user,
+            'who': document.getElementById('message_status').innerText,
+            'number': p1,
+        }))
+
+        } else{
+            document.getElementById("waiting_user").innerText = ""
+            document.getElementById("waiting_text").innerText = ""
+
+            if(p1 === p2){
+                socket.send(JSON.stringify({
+                    'function': "tie",
+                    'username': main_user,
+                    'who': document.getElementById('message_status').innerText,
+                    'loser': p1,
+                    'winner': p2
+                }))
+
+                document.getElementById("result").innerText = document.getElementById('message_status').innerText + " :" + p1 + " == " + main_user + ": " + p2;
+                document.getElementById("result_text").innerText = "Its a Tie"
+
+            } else if(p1 < p2){
+                socket.send(JSON.stringify({
+                    'function': "lost",
+                    'username': main_user,
+                    'who': document.getElementById('message_status').innerText,
+                    'loser': document.getElementById('message_status').innerText + " :" + p1,
+                    'winner': main_user + " :" + p2,
+                }))
+
+                document.getElementById("result").innerText = document.getElementById('message_status').innerText + " :" + p1 + " < " + main_user + ": " + p2;
+                document.getElementById("result_text").innerText = "You Won"
+            } else{
+                 socket.send(JSON.stringify({
+                    'function': "won",
+                    'username': main_user,
+                    'who': document.getElementById('message_status').innerText,
+                     'loser': main_user + " :" + p2,
+                    'winner': document.getElementById('message_status').innerText + " :" + p1,
+                }))
+
+                document.getElementById("result").innerText = document.getElementById('message_status').innerText + " :" + p1 + " > " + main_user + ": " + p2;
+                 document.getElementById("result_text").innerText = "You Lost"
+            }
+        }
+    }
 </script>
 
  <script>

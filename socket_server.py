@@ -54,6 +54,18 @@ class SocketClass:
             ClientSockets[user_id][1].connection.request.sendall(sendFrame)
             self.connection.request.sendall(sendFrame)
 
+    def send_specific2(self, data, user):
+        sendFrame = bytearray()
+        sendFrame.append(129)
+        sendFrame.append(len(data))
+        sendFrame.extend(data)
+        user_id = self.hash_user(user)
+        print(user)
+        print(user_id)
+        print(ClientSockets)
+        if user_id in ClientSockets:
+            ClientSockets[user_id][1].connection.request.sendall(sendFrame)
+
     def send_self(self, data):
         sendFrame = bytearray()
         sendFrame.append(129)
@@ -89,6 +101,20 @@ class SocketClass:
                         users.append({"user": ClientSockets[sockets][0], "status": ClientSockets[sockets][2]})
                     send_json["users"] = users
                     self.send_self(json.dumps(send_json).encode('utf-8'))
+                elif js["function"] == "challenge":
+                    database.insert_document(js["username"] + "_" + js["who"],
+                                             {"username": js["username"], "comment": "Sent a challenge"})
+                    database.insert_document(js["who"] + "_" + js["username"],
+                                             {"username": js["username"], "comment": "Sent a challenge"})
+                    self.send_specific2(payload, js["who"])
+                elif js["function"] == "play":
+                    self.send_specific2(payload, js["who"])
+                elif js["function"] == "won":
+                    self.send_specific2(payload, js["who"])
+                elif js["function"] == "lost":
+                    self.send_specific2(payload, js["who"])
+                elif js["function"] == "tie":
+                    self.send_specific2(payload, js["who"])
             if len(payload) == 2:
                 del ClientSockets[self.clientid]
                 break
