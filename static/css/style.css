@@ -7,7 +7,7 @@ body {
   float: left;
   width: 50%;
   height: 803px;
-  margin: 25px;
+  margin: 0px 25px 25px 25px;
   border: 4px solid rgba(0, 0, 0, .2);
     background: lightblue;
 }
@@ -35,3 +35,24 @@ body {
 }
 
 .user{}
+
+.alert {
+  padding: 20px;
+  background-color: #f44336;
+  color: white;
+}
+
+.game_menu {
+  float: right;
+  width: 40%;
+  height: 500px;
+  margin: 0px 25px 25px 25px;
+  border: 4px solid rgba(0, 0, 0, .2);
+    background: lightblue;
+}
+
+.notification {
+    outline:none;
+    border-color: saddlebrown;
+    box-shadow:0 0 10px saddlebrown;
+}
